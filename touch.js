@@ -1,19 +1,19 @@
 var touchOn = false;
 var touchJoySticks = [
   {
-    x: .2, y:.8, r: .2,
+    x: .15, y:.75, r: .2,
     area: {
       x: 0, y: 0, w: 0.5, h: 1
     },
-    output: {x: 0, y: 0, angle: 0},
+    output: {x: 0, y: 0, angle: 0,r:0},
     held: false,
   },
   {
-    x: .8, y:.8, r: .2,
+    x: .85, y:.75, r: .2,
     area: {
       x: 0.5, y: 0, w: 0.5, h: 1
     },
-    output: {x: 0, y: 0, angle: 0},
+    output: {x: 0, y: 0, angle: 0,r:0},
     held: false,
   }
 ]
@@ -71,6 +71,7 @@ function touchstart(e) {
           x: dx/r*magnitude,
           y: dy/r*magnitude,
           angle: Math.atan2(dy,dx),
+          r: r,
         };
         joyStick.held = true;
       }

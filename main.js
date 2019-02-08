@@ -118,6 +118,9 @@ class HouseButton extends Clickable {
 
 function getAxes() {
   if(touchOn&&touchJoySticks[0].held) {
+    // var r = touchJoySticks[0].output.r / 0.1;
+    // if(r>1)r=1;
+    
     return {
       inputX: touchJoySticks[0].output.x,
       inputY: touchJoySticks[0].output.y,

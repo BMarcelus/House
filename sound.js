@@ -12,22 +12,28 @@ function setVolume(val) {
   DESTINATION.gain.setValueAtTime(val, 0);  
 }
 function initializeSound() {
-  if(SOUND_INITIALIZED) return;
-  if('webkitAudioContext' in window) {
-    AUDIOCONTEXT = new webkitAudioContext();
-  } else {
-    AUDIOCONTEXT = new AudioContext();
+  if(SOUND_INITIALIZED) return false;
+  try {
+    if('webkitAudioContext' in window) {
+      AUDIOCONTEXT = new webkitAudioContext();
+    } else {
+      AUDIOCONTEXT = new AudioContext();
+    }
+    AUDIOCONTEXT.resume();
+    var GAIN = AUDIOCONTEXT.createGain();
+    GAIN.connect(AUDIOCONTEXT.destination);
+    DESTINATION = GAIN;
+    setVolume(0.5);
+    for(var i in BUFFERBUFFER) {
+      BUFFERBUFFER[i].beginLoad();
+    }
+    BUFFERBUFFER = [];
+    SOUND_INITIALIZED = true;
+    return true;
   }
-  AUDIOCONTEXT.resume();
-  var GAIN = AUDIOCONTEXT.createGain();
-  GAIN.connect(AUDIOCONTEXT.destination);
-  DESTINATION = GAIN;
-  setVolume(0.5);
-  for(var i in BUFFERBUFFER) {
-    BUFFERBUFFER[i].beginLoad();
+  catch (error){
+    alert(error);
   }
-  BUFFERBUFFER = [];
-  SOUND_INITIALIZED = true;
 }
 function loadBuffer(url, callback) {
   // Load buffer asynchronously
@@ -112,7 +118,7 @@ class SoundSource {
     var time = audioContext.currentTime;
     var source = audioContext.createBufferSource();
     source.buffer = this.buffer;
-    source.detune.setValueAtTime(-Math.log(this.playbackRate)*100, time);
+    // source.detune.setValueAtTime(-Math.log(this.playbackRate)*100, time);
     // source.playbackRate = 0.5;
     // if(pitchShift != null) {
     //   source.playbackRate.setValueAtTime(pitchShift, time)
@@ -120,11 +126,13 @@ class SoundSource {
     //   // source.detune.setValueAtTime(pitchShift*100, time);
     // }
     var r = 1;// + (Math.random()-0.5)/10;
-    source.playbackRate.setValueAtTime(this.playbackRate*r,time);
+    // var pbr = (this.playbackRate)/10+0.9;
+    // source.playbackRate.setValueAtTime(pbr,time);
     source.start(time);  
     if(this.loops) source.loop = true;
     var gain = audioContext.createGain();
     gain.gain.setValueAtTime(this.volume, time);
+    // gain.gain.setValueAtTime(0, time + 1/this.playbackRate);
     gain.connect(destination);
     source.connect(gain);    
     source.stopSound = function() {
@@ -220,8 +228,9 @@ SOUNDS.start = new SoundTag('houseyeah.wav', 1, 1);
 SOUNDS.shoot = dup('House.wav', 3, 1,3);
 SOUNDS.footstep = new SoundList([
   new SoundTag('houseReverb.wav', 3, .3),
-  new SoundTag('houseReverb.wav', 4, .3),
-  new SoundTag('houseReverb.wav', 5, .3),
+  new SoundTag('houseReverb.wav', 3.2, .3),
+  new SoundTag('houseReverb.wav', 3, .3),
+  new SoundTag('houseReverb.wav', 2.8, .3),
 ])
 SOUNDS.hit = dup('housesingy.wav', 4, 2,3);
 SOUNDS.die = new SoundTag('houseReverb.wav', 0.4, 2);

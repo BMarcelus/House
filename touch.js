@@ -54,6 +54,7 @@ function touchstart(e) {
   // if(this.scene.time)this.scene.time=0;
   var touches = e.changedTouches;
   e.preventDefault();
+  e.stopImmediatePropagation();
   for(var i=0;i<touches.length;i++) {
     var touch = e.changedTouches[i];
     var {x, y} = this.getTouchPosition(touch, e);

@@ -11,8 +11,29 @@
   </head>
   <body>
     <canvas id="gc" width="800" height="450"></canvas>
-    <script src="sound.js?13"></script>
+    <!-- <script src="sound.js?13"></script>
     <script src="touch.js?9"></script>
-    <script src="main.js?14"></script>
+    <script src="main.js?14"></script> -->
+    <script>
+      function loadScript (dir, file) {
+        var scr = document.createElement("script");
+        var url = dir + file;
+        scr.src = url + '?' + Date.now();
+        // concat += url + " ";
+        document.body.appendChild(scr);
+        return scr;
+      }
+      function loadSequentially (dir, list) {
+        var file = list.shift();
+        loadScript(dir, file).onload = function() {
+          if(list.length!=0)
+          loadSequentially(dir, list);
+        };
+      }
+    // loadSequentially("/", "sound.js", "touch.js", "main.js");
+    loadScript("","sound.js");
+    loadScript("","touch.js");
+    loadScript("","main.js");
+    </script>
   </body>
 </html>

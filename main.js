@@ -94,12 +94,13 @@ class HouseButton extends Clickable {
     this.d += (0-this.d)/50;
     // if(this.d>0)
     // this.d-=1;
-    if(touchOn) this.clicked();
+    if(touchOn || gamepadOn) this.clicked();
     super.update();
   }
   clicked() {
     this.shouldDelete = true;
     entities.push(new Mover(this.x,this.y));
+    entities.push(new CrossHairs());
     mouse.down = false;
     SOUNDS.start.play();
     started = true;
@@ -115,6 +116,39 @@ class HouseButton extends Clickable {
     canvas.fillRect(x+w*.2,y+h/2+h/6+d*3,w/5,h/6);
   }
 }
+var crossHairs;
+class CrossHairs extends Thing {
+  constructor() {
+    super();
+    this.color='red';
+    this.color2 = '#900';
+    this.x = mouse.x;
+    this.y = mouse.y;
+    this.w = 0;
+    this.h = 0;
+    this.distance = 3;
+    CE.style.cursor = 'none';
+    crossHairs = this;
+  }
+  update() {
+    this.x = mouse.x;
+    this.y = mouse.y;
+    if(player.shooting&&player.shootTimer%10==0) {
+      this.distance = 9;
+      this.scale = 1.2;
+    } else {
+      this.distance += (2-this.distance)/30;
+      this.scale += (1-this.scale)/30;
+    }
+  }
+  drawShape(x,y,w,h,color) {
+    w=6;
+    for(var i=0;i<4;i++) {
+      drawHouse(-w/2-.3,this.distance,w,12,color,this.color2);
+      canvas.rotate(Math.PI/2);
+    }
+  }
+}
 
 function getAxes() {
   if(touchOn&&touchJoySticks[0].held) {
@@ -126,12 +160,19 @@ function getAxes() {
       inputY: touchJoySticks[0].output.y,
     }
   }
+  if(gamepadOn&&gamepadJoysticks[0].held) {
+    return {
+      inputX: gamepadJoysticks[0].output.x,
+      inputY: gamepadJoysticks[0].output.y,
+    }
+  }
   var inputX = (keys[68]||keys[39])-(keys[65]||keys[37]);
   var inputY = (keys[83]||keys[40])-(keys[87]||keys[38]);
   return {inputX, inputY};
 }
 
 //Player
+var numberOfShots = 1;
 class Mover extends Thing{
   constructor(x,y) {
     super();
@@ -172,6 +213,11 @@ class Mover extends Thing{
       this.shooting = true;
       return;
     }
+    if(gamepadOn&&gamepadJoysticks[1].held) {
+      this.aimAngle = gamepadJoysticks[1].output.angle;
+      this.shooting = true;
+      return;
+    }
     this.shooting = mouse.held;
     if(mouse.down)this.shootTimer=0;
     var dx = mouse.x - this.x;
@@ -188,13 +234,26 @@ class Mover extends Thing{
   }
   doShoot() {
     if(win) return;
+    /*
+       var spacing = this.shotSize*3;
+    this.heat += this.heatPerShot*this.heatModifier;
+    var shots = this.multiShot+1;
+    var left = (-shots)*spacing/2;
+    for(var i=0;i<shots;++i) {
+      var dx = left + (i+0.5)*spacing;
+    */
     if(this.shooting&&this.shootTimer%10==0) {
-      var b = new Bullet(
-        this.x + Math.cos(this.aimAngle)*50,
-        this.y + Math.sin(this.aimAngle)*50,
-        this.aimAngle,this);
-      entities.push(b);
-      playerBullets.push(b);
+      var spacing = Math.PI/20;
+      var startAngle = this.aimAngle - (numberOfShots) * spacing/2;
+      for(var i=0;i<numberOfShots;i++) {
+        var bulletAngle = startAngle + (i+.05) * spacing;
+        var b = new Bullet(
+          this.x + Math.cos(bulletAngle)*50,
+          this.y + Math.sin(bulletAngle)*50,
+          bulletAngle,this);
+        entities.push(b);
+        playerBullets.push(b);
+      }
       SOUNDS.shoot.play();
     }
   }
@@ -283,7 +342,7 @@ class Bullet extends Thing{
     this.vx = Math.cos(angle)*this.speed;
     this.vy = Math.sin(angle)*this.speed;
     this.life = 100;
-    this.color = 'blue';
+    this.color = 'white';
   }
   hit() {
     this.shouldDelete=true;
@@ -303,7 +362,7 @@ class Enemy extends Thing {
     this.y=y;
     this.w=50;
     this.h=60;
-    this.color = 'red';
+    this.color = '#a00';
     this.drawShape = drawHouse;
     this.life =3;
     enemies.push(this);
@@ -377,7 +436,7 @@ class BigEnemy extends Enemy {
     super(x,y);
     this.w = this.w*1.2;
     this.h = this.h*1.1;
-    this.color = "#d33";
+    this.color = "#900";
     this.life = 7;
     this.speed = 3;
   }
@@ -567,7 +626,7 @@ class Coin extends Thing {
 class Health extends Coin {
   constructor(x,y,angle,r) {
     super(x,y,angle,r);
-    this.color = '#f99';
+    this.color = '#f0a';
   }
   animate() {
     this.y += Math.cos(this.frame*Math.PI/20);
@@ -636,6 +695,7 @@ function spawnEnemy() {
 var spawnCount;
 
 function update() {
+  handleGamePad();
   spawnTimer += 1;
   if(spawnTimer>=spawnTime&&started) {
     spawnEnemy();
@@ -689,11 +749,13 @@ function update() {
 }
 function draw() {
   canvas.clearRect(0,0,CE.width,CE.height);
+  // canvas.fillStyle="rgba(0,0,0,0.05)";
+  // canvas.fillRect(0,0,CE.width,CE.height);
   if(started==2) canvas.globalAlpha = 1-frameCount/100;
   entities.forEach(e=>e.draw());
   window.requestAnimationFrame(draw);
   if(started) {
-    if(spawnCount==-1 && enemies.length ==0) {
+    if(spawnCount == -1 && enemies.length == 0) {
       canvas.fillStyle = 'white';
       canvas.textAlign='center';
       canvas.font = "60px Impact";
@@ -706,6 +768,8 @@ function draw() {
         frameCount = 0;
       }
     }
+    if(crossHairs)crossHairs.draw();
+
     canvas.save();
     if(frameCount<100)
     canvas.translate(0,-100+frameCount);
@@ -726,7 +790,6 @@ function draw() {
     drawHouse(80,20,100,30,'#333','#333');
     drawHouse(80,20,100* player.life/player.maxLife,30,color,color);
     // canvas.fillRect(80,20,100* player.life/player.maxLife,30) ;
-
 
     if(frameCount<200)
     canvas.translate(-200+frameCount,0);
@@ -767,8 +830,10 @@ function start() {
   frameCount = 0;
   lifeBlink = 0;
   touchOn = false;
+  gamepadOn = false;
   win = false;
   started = false;
+  CE.style.cursor = 'default';
   entities.push(new HouseButton(CE.width/2,CE.height/2));
 }
 function setup() {
@@ -783,8 +848,8 @@ function onmousemove(e) {
   y = e.clientY-boundingClientRect.top;
   x *= CE.width/e.target.offsetWidth;
   y *= CE.height/e.target.offsetHeight;
-  mouse.x=x;
-  mouse.y=y;
+  mouse.x = x;
+  mouse.y = y;
 }
 
 function onmousedown(e) {

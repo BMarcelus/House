@@ -35,6 +35,18 @@ function drawHouse(x,y,w,h,style1,style2) {
   canvas.fillRect(x+w*.2,y+h/2+h/6,w/5,h/6);
 }
 
+function drawHalfHouse(x,y,w,h,style1,style2) {
+  canvas.fillStyle = style1||'white';
+  canvas.fillRect(x,y+h/2,w/2,h/2);
+  canvas.beginPath();
+  canvas.moveTo(x-w/10,y+h/2+1);
+  canvas.lineTo(x+w/2,y+h/2+1-h/2);
+  canvas.lineTo(x+w/2,y+h/2+1);
+  canvas.fill();
+  canvas.fillStyle = style2||'black';
+  canvas.fillRect(x+w*.2,y+h/2+h/6,w/5,h/6);
+}
+
 class Thing {
   constructor() {
     this.scale = 1;
@@ -48,7 +60,7 @@ class Thing {
     canvas.scale(this.scale,this.scale);
     canvas.rotate(this.angle);
     canvas.translate(-w/2,-h/2);
-    this.drawShape(0,0,w,h,this.color);
+    this.drawShape(0,0,w,h,this.color,this.color2);
     canvas.restore();
   }
 }
@@ -131,8 +143,16 @@ class CrossHairs extends Thing {
     crossHairs = this;
   }
   update() {
-    this.x = mouse.x;
-    this.y = mouse.y;
+    if(touchOn) {
+      this.x = player.x + touchJoySticks[1].output.x*100;
+      this.y = player.y + touchJoySticks[1].output.y*100;
+    } else if(gamepadOn) {
+      this.x = player.x + gamepadOn[1].output.x*100;
+      this.y = player.y + gamepadOn[1].output.y*100;
+    } else {
+      this.x = mouse.x;
+      this.y = mouse.y;
+    }
     if(player.shooting&&player.shootTimer%10==0) {
       this.distance = 9;
       this.scale = 1.2;
@@ -144,7 +164,10 @@ class CrossHairs extends Thing {
   drawShape(x,y,w,h,color) {
     w=6;
     for(var i=0;i<4;i++) {
-      drawHouse(-w/2-.3,this.distance,w,12,color,this.color2);
+      var s = 1;
+      var h = 14;
+      drawHouse(-w/2-.3-s,this.distance-s,w+s*2,h+s*2,"#000","#000");
+      drawHouse(-w/2-.3,this.distance,w,h,color,this.color2);
       canvas.rotate(Math.PI/2);
     }
   }
@@ -185,7 +208,7 @@ class Mover extends Thing{
     this.moveSpeed = 3;
     this.update = this.updatePlatformer;
     this.moveAnimation=0;
-    this.maxLife = 10;
+    this.maxLife = 6;
     this.life = this.maxLife;
     player = this;
     this.invul = 0;
@@ -403,6 +426,7 @@ class Enemy extends Thing {
       player.vx = dx/r*10;
       player.vy = dy/r*10;
     }
+
   }
   hit() {
     this.life -= 1;
@@ -492,65 +516,186 @@ class Boss extends Enemy {
     var ty = Math.sin(angle)*this.speed;
     this.vx = linearMove(this.vx, tx, .4);
     this.vy = linearMove(this.vy, ty, .4);
+    if(this.x<0)this.x=0;
+    if(this.y<0)this.y=0;
+    if(this.x>CE.widdth)this.x=CE.width;
+    if(this.y>CE.height)this.y=CE.height;
   }
   update() {
-    if(this.life<100&&this.stage==0) {
+    if(this.life<80&&this.stage==0) {
       this.color = 'red';
       this.stage = 1;
+      this.state = 6;
+      this.stateTimer = 10;
       this._w*=0.7;
       this._h*=0.7;
       SOUNDS.bossSpawn.play();
     }
     this.stateTimer -= 1;
+    var numStates=5;
     if(this.stateTimer<=0) {
-      this.stateTimer = 50;
+      this.stateTimer = 100;
       var ps = this.state;
-      this.state = Math.floor(Math.random()*6);
-      while(ps==1&&this.state==1)this.state = Math.floor(Math.random()*6);
-      if(this.stage==0) {
+      this.state = (this.state+1)%8;
+      // if(this.state==3||this.state==4) {
+      //   this.state+=numStates;
+      // } else {
+      //   this.state = Math.floor(Math.random()*6);
+      //   while(ps==1&&this.state==1)this.state = Math.floor(Math.random()*6);
+      //   if(this.state==3||this.state==4) {
+      //     this.stateTimer = 100;
+      //   } else
+      //   if(this.stage==0) {
+      //     this.target = {
+      //       x: Math.random()*CE.width,
+      //       y: Math.random()*CE.height,
+      //     };
+      //   }
+      // }
+      if(this.life>150&&this.state>2) {
+        this.state=1;
+      }
+      if(this.life>80&&this.state>5) {
+        this.state = 3;
+      }
+      if(this.state==0) {
         this.target = {
-          x: Math.random()*CE.width,
-          y: Math.random()*CE.height,
-        };
-      }
-    }
-    if(this.state==0) {
-      this.speed = 1;
-      this.w += (this._w-this.w)/3;
-      this.h += (this._h-this.h)/3;
-      if(this.stage!=0)this.speed = 2.5;
-    } else if(this.state==1) {
-      this.w += (this._w-this.w)/3;
-      this.h += (this._h-this.h)/3;
-      this.target = player;
-      this.speed = Math.cos(this.stateTimer*Math.PI/50-Math.PI/4)*5;
-    } else if(this.state==2) {
-      this.w += (this._w-this.w)/3;
-      this.h += (this._h-this.h)/3;
-      if(this.stage!=0) {
-      this.speed = -1;
-        if(this.frame%20==0) {
-          entities.push(new FastEnemy(this.x+this.dx*10,this.y+this.dy*10));
+          x: CE.width/2,
+          y: CE.height/2,
         }
+        this.speed = 3;
+      } else if(this.state==1) {
+        this.stateTimer = 70;
+        this.target = player;
+        this.speed = -4;
+      } else if(this.state==2) {
+        this.target = {
+          x: player.x, y: player.y
+        };
+        this.speed = 6;
+      } else if(this.state==3) {
+        this.target = {
+          x: CE.width/2,
+          y: 0,
+        }
+        this.speed = 4;
+      } else if(this.state==4) {
+        this.target = {
+          x: player.x,
+          y: 0,
+        }
+        this.speed = 6;
+      } else if(this.state==5) {
+        this.target = {
+          x: this.x,
+          y: CE.height,
+        }
+        this.speed = 10;
+      } else if(this.state==6) {
+        this.target = {
+          x: CE.width/2,
+          y: CE.height/2,
+        };
+        this.speed = 5;
+      } else if(this.state==7) {
+        this.stateTimer = 900;
       }
-    } else if(this.state==3) {
-      this.w = (.9+4*(50-this.stateTimer)/50)*this._w;
-      this.h += (this._h/2-this.h)/3;
-      this.speed = 0;
+      if(this.stage==1) {
+        this.speed*=2;
+      }
     }
-    else if(this.state==4) {
-      this.h = (.9+4*(50-this.stateTimer)/50)*this._h;
-      this.w += (this._w/2-this.w)/3;
-      this.speed = 0;
+    if(this.state==4) {
+      this.w += (this._w*1.2-this.w)/3;
+      this.h += (this._h*.8-this.h)/3;
+      this.target = {
+        x: player.x,
+        y: 0,
+      }
+    } else if(this.state==5) {
+      this.w += (this._w*.8-this.w)/3;
+      this.h += (this._h*1.2-this.h)/3;
+    } else {
+      this.w += (this._w-this.w)/3;
+      this.h += (this._h-this.h)/3;
     }
-    else if(this.state==5) {
-      this.w += (this._w*1.5-this.w)/10;
-      this.h += (this._h*1.5-this.h)/10;
+    if(this.state==7) {
+      var dx = player.x-this.x;
+      var dy = player.y-this.y;
+      this.target = {
+        x: this.x+dy,
+        y: this.y-dx,
+      }
+      this.speed = 8;
+      if(this.stateTimer>600&&this.frame%20==0) {
+        entities.push(new FastEnemy(this.x+this.dx*10,this.y+this.dy*10));
+      }
     }
-    if(this.frame%50==0) {
-      entities.push(new FastEnemy(this.x+this.dx*10,this.y+this.dy*10));
+    // if(this.state==0) {
+    //   this.speed = 1;
+    //   this.w += (this._w-this.w)/3;
+    //   this.h += (this._h-this.h)/3;
+    //   if(this.stage!=0)this.speed = 2.5;
+    // } else if(this.state==1) {
+    //   this.w += (this._w-this.w)/3;
+    //   this.h += (this._h-this.h)/3;
+    //   this.target = player;
+    //   this.speed = Math.cos(this.stateTimer*Math.PI/50-Math.PI/4)*6;
+    // } else if(this.state==2) {
+      // this.w += (this._w-this.w)/3;
+      // this.h += (this._h-this.h)/3;
+      // if(this.stage!=0) {
+      // this.speed = -1;
+        // if(this.frame%20==0) {
+        //   entities.push(new FastEnemy(this.x+this.dx*10,this.y+this.dy*10));
+        // }
+      // }
+    // } else if(this.state==3) {
+    //   // this.w = (.9+4*(50-this.stateTimer)/50)*this._w;
+    //   // this.h += (this._h/2-this.h)/3;
+    //   // this.speed = 0;
+    //   this.color='green';
+    //   this.target = {
+    //     x: player.x, y:-10
+    //   }
+    //   this.speed = 8;
+    // }
+    // else if(this.state==3+numStates) {
+    //   this.color='green';
+    //   this.target = {
+    //     x: this.x, y:CE.height
+    //   }
+    //   this.speed = 12;
+    // }
+    // else if(this.state==4) {
+    //   this.color='blue';
+    //   // this.h = (.9+4*(50-this.stateTimer)/50)*this._h;
+    //   // this.w += (this._w/2-this.w)/3;
+    //   // this.speed = 0;
+    //   this.target = {
+    //     x: -10,
+    //     y: player.y
+    //   }
+    //   this.speed = 8;
+    // }
+    // else if(this.state==4+numStates) {
+    //   this.color='blue';
+    //   this.target = {
+    //     x: CE.width,
+    //     y: this.y,
+    //   }
+    //   this.speed=12;
+    // }
+    // else if(this.state==5) {
+    //   this.w += (this._w*1.5-this.w)/10;
+    //   this.h += (this._h*1.5-this.h)/10;
+    // }
+    if(this.stage==0&&this.life<150&&this.frame%200==0) {
+      entities.push(new BigEnemy(this.x+this.dx*10,this.y+this.dy*10));
     }
     super.update();
+    if(this.state==1||this.state==2) {
+      this.angle = Math.atan2(this.dy,this.dx)+Math.PI/2;
+    }
   }
   // movement(dx,dy,angle,r) {
   //   this.tx = Math.cos(angle)*this.speed;
@@ -565,10 +710,16 @@ class Boss extends Enemy {
     if(this.frame<20)
     canvas.translate(0,(-20+this.frame)*10);
     canvas.fillStyle = this.color;
+    canvas.strokeStyle = "black";
     canvas.textAlign='center';
     canvas.font = '40px Impact';
+    canvas.lineWidth = 2;
+    canvas.strokeText("HOUSE", CE.width/2,80);
     canvas.fillText("HOUSE", CE.width/2,80);
     var w = 400;
+    canvas.fillStyle="#444";
+    canvas.fillRect(CE.width/2-w/2-3, 20-3, w+6, 20+6);
+    canvas.fillStyle=this.color;
     canvas.fillRect(CE.width/2-w/2, 20, w*this.life/200, 20);
     canvas.restore();
   }
@@ -582,7 +733,7 @@ class Coin extends Thing {
     this.w = 25;
     this.h = 30;
     this.color = 'gold';
-    this.drawShape = drawHouse;
+    // this.drawShape = drawHouse;
     this._w = this.w;
     this.frame = Math.floor(Math.random()*10);
     this.vx = Math.cos(angle)*r*3;
@@ -590,6 +741,12 @@ class Coin extends Thing {
     this.vz = -4+Math.random();
     this.z = 0;
     this.falling = true;
+    this.visible = true;
+  }
+  drawShape(...args) {
+    if(this.visible) {
+      drawHouse(...args);
+    }
   }
   update() {
     if(this.falling) {
@@ -608,7 +765,14 @@ class Coin extends Thing {
       this.pickup();
       this.shouldDelete = true;
     }
-
+    if(this.frame>300) {
+      // this.x+=(player.x-this.x)/10;
+      // this.y+=(player.y-this.y)/10;
+      this.visible = this.frame%12>=6;
+    }
+    if(this.frame>500) {
+      this.shouldDelete = true;
+    }
     if(this.x<0)this.x=0;
     if(this.x>CE.width)this.x=CE.width;
     if(this.y<0)this.y=0;
@@ -626,14 +790,15 @@ class Coin extends Thing {
 class Health extends Coin {
   constructor(x,y,angle,r) {
     super(x,y,angle,r);
-    this.color = '#f0a';
+    this.color = "#F0a";
+    this.color2 = "#F0a";
   }
   animate() {
     this.y += Math.cos(this.frame*Math.PI/20);
   }
   pickup() {
     lifeBlink=1;
-    player.life += 5;
+    player.life += 2;
     SOUNDS.health.play();
     if(player.life>player.maxLife)player.life = player.maxLife;
   }
@@ -763,7 +928,7 @@ function draw() {
       canvas.lineWidth = 2;
       canvas.strokeText("HOUSE", CE.width/2,CE.height/2);
       canvas.fillText("HOUSE", CE.width/2,CE.height/2);
-      if(entities.length == 1&&started!=2) {
+      if(entities.length == 2&&started!=2) {
         started = 2;
         frameCount = 0;
       }
@@ -775,7 +940,8 @@ function draw() {
     canvas.translate(0,-100+frameCount);
     canvas.font = '20px Gloria Hallelujah, Cursive';
     canvas.textAlign = 'left';
-    canvas.fillStyle = '#e12';
+    // canvas.fillStyle = '#e12';
+    canvas.fillStyle = '#f0a';
     if(lifeBlink>0) {
       if(lifeBlink%10<5)
       canvas.fillStyle = '#f88';
@@ -787,15 +953,40 @@ function draw() {
     //   drawHouse(80+25/2+i*100/player.maxLife,20,30,40,'red','red');
     // }
     var color = canvas.fillStyle;
-    drawHouse(80,20,100,30,'#333','#333');
-    drawHouse(80,20,100* player.life/player.maxLife,30,color,color);
+    // drawHouse(80,20,100,30,'#333','#333');
+    // drawHouse(80,20,100* player.life/player.maxLife,30,color,color);
+    var pipSize = 20;
+    var spacing = pipSize*1;
+    for(var i=0;i<player.maxLife;i+=2) {
+      // var c = color;
+      // if(player.life <= i) c = "#333";
+      drawHouse(80+spacing*i,20,pipSize,pipSize,"#333","#333");
+      if(player.life>i+1) {
+        drawHouse(80+spacing*i,20,pipSize,pipSize,color,color);
+      } else if(player.life==i+1) {
+        drawHalfHouse(80+spacing*i,20,pipSize,pipSize,color,color);
+      }
+    }
     // canvas.fillRect(80,20,100* player.life/player.maxLife,30) ;
 
     if(frameCount<200)
     canvas.translate(-200+frameCount,0);
     canvas.fillStyle = 'gold';
-    canvas.font = '20px Pacifico'
+    canvas.font = '20px Pacifico';
     canvas.fillText('House: '+player.coins, 10,80);
+    // coinValues = [[100,"#ed3"],[10,"#ccc"],[1,"#c73"]];
+    // var coins = player.coins;
+    // var x = 100;
+    // coinValues = coinValues.map(e => {
+    //   result = Math.floor(coins / e[0]);
+    //   coins = coins %e[0];
+    //   for(var i=0;i<result;i++) {
+    //     drawHouse(x,80,10,10,e[1]);
+    //     x+=5;
+    //   }
+    //   if(result>0)x+=10;
+    //   return result;
+    // })
     canvas.restore();
   }
   if(touchOn) {
@@ -853,6 +1044,8 @@ function onmousemove(e) {
 }
 
 function onmousedown(e) {
+  touchOn = false;
+  gamepadOn = false;
   mouse.down = true;
   mouse.held = true;
   initializeSound();

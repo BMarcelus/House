@@ -157,13 +157,13 @@ class CrossHairs extends Thing {
     if(this.x>CE.width)this.x=CE.width;
     if(this.y<0)this.y=0;
     if(this.y>CE.height)this.y=CE.height;
-    if(player.shooting&&player.shootTimer%10==0) {
-      this.distance = 9;
-      this.scale = 1.2;
-    } else {
-      this.distance += (2-this.distance)/30;
-      this.scale += (1-this.scale)/30;
-    }
+    
+    this.distance += (2-this.distance)/30;
+    this.scale += (1-this.scale)/30;
+  }
+  shoot() {
+    this.distance = 9;
+    this.scale = 1.2;
   }
   drawShape(x,y,w,h,color) {
     w=6;
@@ -246,7 +246,7 @@ class Mover extends Thing{
       return;
     }
     this.shooting = mouse.held;
-    if(mouse.down)this.shootTimer=0;
+    // if(mouse.down)this.shootTimer=5;
     var dx = mouse.x - this.x;
     var dy = mouse.y - this.y;
     this.aimAngle = Math.atan2(dy,dx);
@@ -270,6 +270,8 @@ class Mover extends Thing{
       var dx = left + (i+0.5)*spacing;
     */
     if(this.shooting&&this.shootTimer%10==0) {
+      this.shootTimer += 1;
+      crossHairs.shoot();
       var spacing = Math.PI/20;
       var startAngle = this.aimAngle - (numberOfShots) * spacing/2;
       for(var i=0;i<numberOfShots;i++) {
@@ -286,7 +288,9 @@ class Mover extends Thing{
   }
   otherUpdates() {
     this.moveFrame += 1;
-    this.shootTimer += 1;
+    if(this.shootTimer%10!=0) {
+      this.shootTimer += 1;
+    }
     this.scale += (1-this.scale)/3;
     if(this.invul>0)
       this.invul -= 1;
@@ -355,7 +359,7 @@ class Mover extends Thing{
   }
 }
 
-class Bullet extends Thing{
+class Bullet extends Thing {
   constructor(x,y,angle,parent) {
     super();
     this.x = x;
@@ -529,7 +533,7 @@ class Boss extends Enemy {
     if(this.life<80&&this.stage==0) {
       this.color = 'red';
       this.stage = 1;
-      this.state = 6;
+      this.state = 7;
       this.stateTimer = 10;
       this._w*=0.7;
       this._h*=0.7;
@@ -540,7 +544,7 @@ class Boss extends Enemy {
     if(this.stateTimer<=0) {
       this.stateTimer = 100;
       var ps = this.state;
-      this.state = (this.state+1)%8;
+      this.state = (this.state+1)%9;
       // if(this.state==3||this.state==4) {
       //   this.state+=numStates;
       // } else {
@@ -559,7 +563,7 @@ class Boss extends Enemy {
       if(this.life>150&&this.state>2) {
         this.state=1;
       }
-      if(this.life>80&&this.state>5) {
+      if(this.life>80&&this.state>6) {
         this.state = 3;
       }
       if(this.state==0) {
@@ -589,40 +593,48 @@ class Boss extends Enemy {
           y: 0,
         }
         this.speed = 6;
+        this.stateTimer = 100;
       } else if(this.state==5) {
+        this.target= {
+          x: this.x,
+          y: this.y
+        }
+        this.speed=1;
+        this.stateTimer = 20;
+      }else if(this.state==6) {
         this.target = {
           x: this.x,
           y: CE.height,
         }
         this.speed = 10;
-      } else if(this.state==6) {
+      } else if(this.state==7) {
         this.target = {
           x: CE.width/2,
           y: CE.height/2,
         };
         this.speed = 5;
-      } else if(this.state==7) {
+      } else if(this.state==8) {
         this.stateTimer = 900;
       }
       if(this.stage==1) {
         this.speed*=2;
       }
     }
-    if(this.state==4) {
+    if(this.state==5) {
       this.w += (this._w*1.2-this.w)/3;
       this.h += (this._h*.8-this.h)/3;
       this.target = {
         x: player.x,
         y: 0,
       }
-    } else if(this.state==5) {
+    } else if(this.state==6) {
       this.w += (this._w*.8-this.w)/3;
       this.h += (this._h*1.2-this.h)/3;
     } else {
       this.w += (this._w-this.w)/3;
       this.h += (this._h-this.h)/3;
     }
-    if(this.state==7) {
+    if(this.state==8) {
       var dx = player.x-this.x;
       var dy = player.y-this.y;
       this.target = {
@@ -630,8 +642,8 @@ class Boss extends Enemy {
         y: this.y-dx,
       }
       this.speed = 8;
-      if(this.stateTimer>600&&this.frame%20==0) {
-        entities.push(new FastEnemy(this.x+this.dx*10,this.y+this.dy*10));
+      if(this.stateTimer>600&&this.frame%40==0) {
+        entities.push(new BigEnemy(this.x+this.dx*10,this.y+this.dy*10));
       }
     }
     // if(this.state==0) {
@@ -693,8 +705,8 @@ class Boss extends Enemy {
     //   this.w += (this._w*1.5-this.w)/10;
     //   this.h += (this._h*1.5-this.h)/10;
     // }
-    if(this.stage==0&&this.life<150&&this.frame%200==0) {
-      entities.push(new BigEnemy(this.x+this.dx*10,this.y+this.dy*10));
+    if(this.stage==0&&this.life>150&&this.frame%200==0) {
+      entities.push(new FastEnemy(this.x+this.dx*10,this.y+this.dy*10));
     }
     super.update();
     if(this.state==1||this.state==2) {
@@ -770,13 +782,13 @@ class Coin extends Thing {
       this.shouldDelete = true;
     }
     if(this.frame>300) {
-      // this.x+=(player.x-this.x)/10;
-      // this.y+=(player.y-this.y)/10;
-      this.visible = this.frame%12>=6;
+      this.x+=(player.x-this.x)/10;
+      this.y+=(player.y-this.y)/10;
+      // this.visible = this.frame%12>=6;
     }
-    if(this.frame>500) {
-      this.shouldDelete = true;
-    }
+    // if(this.frame>500) {
+      // this.shouldDelete = true;
+    // }
     if(this.x<0)this.x=0;
     if(this.x>CE.width)this.x=CE.width;
     if(this.y<0)this.y=0;
@@ -856,7 +868,7 @@ function spawnEnemy() {
   } else if(spawnCount == 40) {
     spawnTime = 500;
   } else {
-    entities.push(new Boss(x,y));
+    entities.push(new Boss(CE.width/2,0));
     spawnCount = -1;
   }
 }

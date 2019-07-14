@@ -153,7 +153,7 @@ class CrossHairs extends Thing {
       this.x = mouse.x;
       this.y = mouse.y;
     }
-    if(this.x>0)this.x=0;
+    if(this.x<0)this.x=0;
     if(this.x>CE.width)this.x=CE.width;
     if(this.y<0)this.y=0;
     if(this.y>CE.height)this.y=CE.height;

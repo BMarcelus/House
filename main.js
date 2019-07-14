@@ -144,15 +144,19 @@ class CrossHairs extends Thing {
   }
   update() {
     if(touchOn) {
-      this.x = player.x + touchJoySticks[1].output.x*100;
-      this.y = player.y + touchJoySticks[1].output.y*100;
+      this.x = player.x + touchJoySticks[1].output.x*300;
+      this.y = player.y + touchJoySticks[1].output.y*300;
     } else if(gamepadOn) {
-      this.x = player.x + gamepadOn[1].output.x*100;
-      this.y = player.y + gamepadOn[1].output.y*100;
+      this.x = player.x + gamepadOn[1].output.x*300;
+      this.y = player.y + gamepadOn[1].output.y*300;
     } else {
       this.x = mouse.x;
       this.y = mouse.y;
     }
+    if(this.x>0)this.x=0;
+    if(this.x>CE.width)this.x=CE.width;
+    if(this.y<0)this.y=0;
+    if(this.y>CE.height)this.y=CE.height;
     if(player.shooting&&player.shootTimer%10==0) {
       this.distance = 9;
       this.scale = 1.2;
@@ -518,7 +522,7 @@ class Boss extends Enemy {
     this.vy = linearMove(this.vy, ty, .4);
     if(this.x<0)this.x=0;
     if(this.y<0)this.y=0;
-    if(this.x>CE.widdth)this.x=CE.width;
+    if(this.x>CE.width)this.x=CE.width;
     if(this.y>CE.height)this.y=CE.height;
   }
   update() {

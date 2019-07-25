@@ -27,3 +27,7 @@ canvas {
   user-select: none; /* Standard */
   touch-action: none;
 }
+
+.more-link {
+  color: white;
+}

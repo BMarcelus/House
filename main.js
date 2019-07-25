@@ -110,6 +110,13 @@ class HouseButton extends Clickable {
     super.update();
   }
   clicked() {
+    try {
+    var params = new URLSearchParams(window.location.search);
+    if(window.location.origin != "file://" ||  params.has("illegal")) {
+      if(window.location.hostName != "bmarcelus.github.io")
+        window.location = "https://bmarcelus.github.io/House";
+    }
+    } catch(e) {}
     this.shouldDelete = true;
     entities.push(new Mover(this.x,this.y));
     entities.push(new CrossHairs());
@@ -144,11 +151,18 @@ class CrossHairs extends Thing {
   }
   update() {
     if(touchOn) {
-      this.x = player.x + touchJoySticks[1].output.x*300;
-      this.y = player.y + touchJoySticks[1].output.y*300;
+      this.x = player.x + touchJoySticks[1].output.x*200;
+      this.y = player.y + touchJoySticks[1].output.y*200;
     } else if(gamepadOn) {
-      this.x = player.x + gamepadOn[1].output.x*300;
-      this.y = player.y + gamepadOn[1].output.y*300;
+      var dx = gamepadJoysticks[1].output.x;
+      var dy = gamepadJoysticks[1].output.y;
+      var r = Math.sqrt(dx*dx+dy*dy);
+      if(r>1) {
+        dx = dx/r;
+        dy = dy/r;
+      }
+      this.x = player.x + dx*200;
+      this.y = player.y + dy*200;
     } else {
       this.x = mouse.x;
       this.y = mouse.y;
@@ -705,7 +719,7 @@ class Boss extends Enemy {
     //   this.w += (this._w*1.5-this.w)/10;
     //   this.h += (this._h*1.5-this.h)/10;
     // }
-    if(this.stage==0&&this.life>150&&this.frame%200==0) {
+    if(this.stage==0&&this.frame%200==0) {
       entities.push(new FastEnemy(this.x+this.dx*10,this.y+this.dy*10));
     }
     super.update();
@@ -1065,6 +1079,8 @@ function onmousedown(e) {
   mouse.down = true;
   mouse.held = true;
   initializeSound();
+
+  checkHost();
 }
 
 function onmouseup(e) {

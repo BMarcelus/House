@@ -110,13 +110,6 @@ class HouseButton extends Clickable {
     super.update();
   }
   clicked() {
-    try {
-    var params = new URLSearchParams(window.location.search);
-    if(window.location.origin != "file://" ||  params.has("illegal")) {
-      if(window.location.hostName != "bmarcelus.github.io")
-        window.location = "https://bmarcelus.github.io/House";
-    }
-    } catch(e) {}
     this.shouldDelete = true;
     entities.push(new Mover(this.x,this.y));
     entities.push(new CrossHairs());

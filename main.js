@@ -35,6 +35,14 @@ function drawHouse(x,y,w,h,style1,style2) {
   canvas.fillRect(x+w*.2,y+h/2+h/6,w/5,h/6);
 }
 
+function drawWithRotation(x,y,w,h,rotation, style1,style2) {
+  canvas.save();
+  canvas.translate(x,y);
+  canvas.rotate(rotation);
+  drawHouse(-w/2,-h/2,w,h,style1,style2);
+  canvas.restore();
+}
+
 function drawHalfHouse(x,y,w,h,style1,style2) {
   canvas.fillStyle = style1||'white';
   canvas.fillRect(x,y+h/2,w/2,h/2);
@@ -106,10 +114,12 @@ class HouseButton extends Clickable {
     this.d += (0-this.d)/50;
     // if(this.d>0)
     // this.d-=1;
-    if(touchOn || gamepadOn) this.clicked();
+    var {inputX, inputY} = getAxes();
+    if(touchOn || gamepadOn||inputX||inputY) this.clicked();
     super.update();
   }
   clicked() {
+    if(this.shouldDelete)return;
     this.shouldDelete = true;
     entities.push(new Mover(this.x,this.y));
     entities.push(new CrossHairs());
@@ -117,6 +127,18 @@ class HouseButton extends Clickable {
     SOUNDS.start.play();
     started = true;
     frameCount=0;
+  }
+  draw() {
+    super.draw();
+    if(this.d<1) {
+      canvas.save();
+      // canvas.globalAlpha = 1-this.d;
+      canvas.translate(0,-100*this.d);
+      drawGamepadControls();
+      canvas.translate(0,200*this.d);
+      drawKeyboardControls();
+      canvas.restore();
+    }
   }
   drawShape(x,y,w,h,style1,style2) {
     var d = this.d;
@@ -126,6 +148,7 @@ class HouseButton extends Clickable {
     canvas.fillStyle = style2||'black';
     canvas.fillRect(x+w*.6,y+h/2+h/6+d*2,w/4,h*2/6);
     canvas.fillRect(x+w*.2,y+h/2+h/6+d*3,w/5,h/6);
+
   }
 }
 var crossHairs;
@@ -141,21 +164,27 @@ class CrossHairs extends Thing {
     this.distance = 3;
     CE.style.cursor = 'none';
     crossHairs = this;
+    this.visible = true;
   }
   update() {
+    this.visible=true;
     if(touchOn) {
       this.x = player.x + touchJoySticks[1].output.x*200;
       this.y = player.y + touchJoySticks[1].output.y*200;
     } else if(gamepadOn) {
-      var dx = gamepadJoysticks[1].output.x;
-      var dy = gamepadJoysticks[1].output.y;
-      var r = Math.sqrt(dx*dx+dy*dy);
-      if(r>1) {
-        dx = dx/r;
-        dy = dy/r;
+      if(!gamepadJoysticks[1].held) {
+        this.visible = false;
+      } else {
+        var dx = gamepadJoysticks[1].output.x;
+        var dy = gamepadJoysticks[1].output.y;
+        var r = Math.sqrt(dx*dx+dy*dy);
+        if(r>1) {
+          dx = dx/r;
+          dy = dy/r;
+        }
+        this.x = player.x + dx*200;
+        this.y = player.y + dy*200;
       }
-      this.x = player.x + dx*200;
-      this.y = player.y + dy*200;
     } else {
       this.x = mouse.x;
       this.y = mouse.y;
@@ -173,6 +202,7 @@ class CrossHairs extends Thing {
     this.scale = 1.2;
   }
   drawShape(x,y,w,h,color) {
+    if(!this.visible)return;
     w=6;
     for(var i=0;i<4;i++) {
       var s = 1;
@@ -227,14 +257,15 @@ class Mover extends Thing{
     this.coins = 0;
     this.moveFrame = 0;
     this.shooting = false;
-    this.shootTimer = 0;
+    this.shootTimer = 10;
   }
   hit() {
     if(this.life<=0)return;
     if(this.invul>0)return;
     this.scale += 0.3;
     this.life -= 1;
-    this.invul = 20;
+    this.invul = 60;
+    this.scale=4;
     if(this.life<=0) {
       SOUNDS.die.play();
     }
@@ -277,7 +308,7 @@ class Mover extends Thing{
       var dx = left + (i+0.5)*spacing;
     */
     if(this.shooting&&this.shootTimer%10==0) {
-      this.shootTimer += 1;
+      this.shootTimer = 1;
       crossHairs.shoot();
       var spacing = Math.PI/20;
       var startAngle = this.aimAngle - (numberOfShots) * spacing/2;
@@ -298,7 +329,7 @@ class Mover extends Thing{
     if(this.shootTimer%10!=0) {
       this.shootTimer += 1;
     }
-    this.scale += (1-this.scale)/3;
+    this.scale += (1-this.scale)/4;
     if(this.invul>0)
       this.invul -= 1;
     this.updateAimAngle();
@@ -315,8 +346,8 @@ class Mover extends Thing{
     this.x += this.vx;
     this.y += this.vy;
     this.vy += 0.2;
-    if(this.y>CE.height*.8) {
-      this.y = CE.height*.8;
+    if(this.y>CE.height*.5) {
+      this.y = CE.height*.5;
       this.vy = 0;
     }
     if(inputY) {
@@ -360,7 +391,8 @@ class Mover extends Thing{
   drawShape(x,y,w,h) {
     drawHouse(x,y,w,h);
     canvas.translate(w*.5,h*.6);
-    canvas.scale(0.3,0.3);
+    var scale = 0.2 + this.shootTimer/10/10;
+    canvas.scale(scale,scale);
     canvas.rotate(this.aimAngle+Math.PI/2);
     drawHouse(-w/2,-h*3,w,h);
   }
@@ -411,10 +443,13 @@ class Enemy extends Thing {
     this._h=this.h;
     this.frame = 0;
     this.target = player;
+    this.accel = 0.5;
   }
   movement(dx,dy,angle,r) {
-    this.vx = Math.cos(angle+Math.PI/20)*this.speed;
-    this.vy = Math.sin(angle+Math.PI/20)*this.speed;
+    var tx = Math.cos(angle)*this.speed;
+    var ty = Math.sin(angle)*this.speed;
+    this.vx = linearMove(this.vx, tx, this.accel);
+    this.vy = linearMove(this.vy, ty, this.accel);
   }
   update() {
     this.frame += 1;
@@ -437,10 +472,18 @@ class Enemy extends Thing {
         r  = Math.sqrt(dx*dx+dy*dy);
         if(r==0){r=1;dx=1;}
       }
+
+      this.vx = -dx/r*20*this.accel;
+      this.vy = -dy/r*20*this.accel;
+
       player.hit();
+      // this.hitPlayer();
       player.vx = dx/r*10;
       player.vy = dy/r*10;
     }
+
+  }
+  hitPlayer() {
 
   }
   hit() {
@@ -448,18 +491,21 @@ class Enemy extends Thing {
     this.scale+=.2;
     SOUNDS.hit.play();
     if(this.life<=0) {
-      this.shouldDelete = true;
-      SOUNDS.enemyDie.play();
-      if(Math.random()>0.7) {
-        SOUNDS.coin.play();
-        for(var i=0;i<1+Math.random()*4;++i) {
-          entities.push(new Coin(this.x,this.y,Math.random()*Math.PI*2,Math.random()));
-        }
+     this.die();
+    }
+  }
+  die() {
+    this.shouldDelete = true;
+    SOUNDS.enemyDie.play();
+    if(Math.random()>0.7) {
+      SOUNDS.coin.play();
+      for(var i=0;i<1+Math.random()*4;++i) {
+        entities.push(new Coin(this.x,this.y,Math.random()*Math.PI*2,Math.random()));
       }
-      if(Math.random()>0.9) {
-        SOUNDS.health.play();
-        entities.push(new Health(this.x,this.y,Math.random()*Math.PI*2,Math.random()));
-      }
+    }
+    if(Math.random()>0.9) {
+      SOUNDS.health.play();
+      entities.push(new Health(this.x,this.y,Math.random()*Math.PI*2,Math.random()));
     }
   }
 }
@@ -478,13 +524,14 @@ class BigEnemy extends Enemy {
     this.color = "#900";
     this.life = 7;
     this.speed = 3;
+    this.accel = .01;
   }
 
   movement(dx,dy,angle,r) {
     var tx = Math.cos(angle)*this.speed;
     var ty = Math.sin(angle)*this.speed;
-    this.vx = linearMove(this.vx, tx, .01);
-    this.vy = linearMove(this.vy, ty, .01);
+    this.vx = linearMove(this.vx, tx, this.accel);
+    this.vy = linearMove(this.vy, ty, this.accel);
   }
 }
 
@@ -497,13 +544,44 @@ class FastEnemy extends Enemy {
     this.life = 1;
     this.speed = 2;
     this.da = (1-Math.floor(Math.random()*2)*2)*Math.PI/5;
+    this.accel=0.4;
   }
   movement(dx,dy,angle,r) {
     angle += this.da;
     var tx = Math.cos(angle)*this.speed;
     var ty = Math.sin(angle)*this.speed;
-    this.vx = linearMove(this.vx, tx, .4);
-    this.vy = linearMove(this.vy, ty, .4);
+    this.vx = linearMove(this.vx, tx, this.accel);
+    this.vy = linearMove(this.vy, ty, this.accel);
+  }
+}
+
+class DeadBoss extends Thing{
+  constructor(x,y,w,h,color) {
+    super();
+    this.x=x;
+    this.y=y;
+    this.w=w;
+    this.h=h;
+    this.color = color;
+    this.life = 150;
+    this.drawShape = drawHouse;
+    this.x += (CE.width/2-this.x)/20;
+    this.y += (CE.height/2-this.y)/20;
+  }
+  update() {
+    this.scale += (0-this.scale)/20;
+    if(frameCount%7==0) {
+      this.angle = Math.cos(frameCount*100)/4;
+      SOUNDS.enemyDie.play();
+      entities.push(new Coin(this.x,this.y,Math.random()*Math.PI*2,Math.random()));
+      this.scale = 1.2;
+    }
+    if(this.life--<0) {
+      this.shouldDelete = true;
+      for(var i=0;i<20;i++){ 
+        entities.push(new Coin(this.x,this.y,Math.random()*Math.PI*2,Math.random()));
+      }
+    }
   }
 }
 
@@ -523,14 +601,24 @@ class Boss extends Enemy {
     this.stage = 0;
     this._w=this.w;
     this._h=this.h;
+    this.accel=0.5;
+  }
+  die() {
+    this.shouldDelete = true;
+    SOUNDS.enemyDie.play();
+    SOUNDS.coin.play();
+    for(var i=0;i<10+Math.random()*4;++i) {
+      entities.push(new Coin(this.x,this.y,Math.random()*Math.PI*2,Math.random()));
+    }
+    entities.push(new DeadBoss(this.x,this.y,this.w,this.h,this.color));
   }
   movement(dx,dy,angle,r) {
     this.dx=dx/r;
     this.dy=dy/r;
     var tx = Math.cos(angle)*this.speed;
     var ty = Math.sin(angle)*this.speed;
-    this.vx = linearMove(this.vx, tx, .4);
-    this.vy = linearMove(this.vy, ty, .4);
+    this.vx = linearMove(this.vx, tx, this.accel);
+    this.vy = linearMove(this.vy, ty, this.accel);
     if(this.x<0)this.x=0;
     if(this.y<0)this.y=0;
     if(this.x>CE.width)this.x=CE.width;
@@ -571,8 +659,20 @@ class Boss extends Enemy {
         this.state=1;
       }
       if(this.life>80&&this.state>6) {
-        this.state = 3;
+        this.state = 4;
       }
+      // if(this.state==8) this.state=1;
+      // if(this.stage==1&&this.state>6) {
+      //   if(Math.random()>.8)this.state=1;
+      //   else this.state = 4;
+      // }
+      // if(this.stage==1&&this.state==3){
+      //   if(Math.random()>.8)this.state=4;
+      //   else this.state=1;
+      // }
+      // if(this.stage==1&&this.state>=3) {
+      //   this.state=1;
+      // }
       if(this.state==0) {
         this.target = {
           x: CE.width/2,
@@ -580,14 +680,15 @@ class Boss extends Enemy {
         }
         this.speed = 3;
       } else if(this.state==1) {
-        this.stateTimer = 70;
+        if(this.stage==1) this.stateTimer=20;
+        else this.stateTimer = 50;
         this.target = player;
         this.speed = -4;
       } else if(this.state==2) {
         this.target = {
           x: player.x, y: player.y
         };
-        this.speed = 6;
+        this.speed = 10;
       } else if(this.state==3) {
         this.target = {
           x: CE.width/2,
@@ -595,25 +696,30 @@ class Boss extends Enemy {
         }
         this.speed = 4;
       } else if(this.state==4) {
+        this.vx=0;
+        this.vy=0;
         this.target = {
           x: player.x,
           y: 0,
         }
-        this.speed = 6;
-        this.stateTimer = 100;
+        this.speed = 20;
+        this.stateTimer = 70;
       } else if(this.state==5) {
         this.target= {
           x: this.x,
           y: this.y
         }
         this.speed=1;
-        this.stateTimer = 20;
+        this.stateTimer = 5;
       }else if(this.state==6) {
+        this.vx=0;
+        this.vy=0;
         this.target = {
           x: this.x,
           y: CE.height,
         }
-        this.speed = 10;
+        this.speed = 35;
+        this.stateTimer=70;
       } else if(this.state==7) {
         this.target = {
           x: CE.width/2,
@@ -625,6 +731,7 @@ class Boss extends Enemy {
       }
       if(this.stage==1) {
         this.speed*=2;
+        this.stateTimer *= (1-Math.random()*.3);
       }
     }
     if(this.state==5) {
@@ -649,8 +756,14 @@ class Boss extends Enemy {
         y: this.y-dx,
       }
       this.speed = 8;
-      if(this.stateTimer>600&&this.frame%40==0) {
-        entities.push(new BigEnemy(this.x+this.dx*10,this.y+this.dy*10));
+      if(this.stateTimer>400&&this.frame%30==0) {
+        var b = new FastEnemy(this.x-this.dx*10,this.y-this.dy*10);
+        var r = Math.sqrt(dx*dx+dy*dy);
+        b.accel=0.4;
+        b.speed*=3;
+        b.vx = dx/r*10+dy/r*5;
+        b.vy = dy/r*10-dx/r*5;
+        entities.push(b);
       }
     }
     // if(this.state==0) {
@@ -713,7 +826,21 @@ class Boss extends Enemy {
     //   this.h += (this._h*1.5-this.h)/10;
     // }
     if(this.stage==0&&this.frame%200==0) {
-      entities.push(new FastEnemy(this.x+this.dx*10,this.y+this.dy*10));
+      // entities.push(new FastEnemy(this.x+this.dx*10,this.y+this.dy*10));
+      // var dx = player.x-this.x;
+      // var dy = player.y-this.y;
+
+      var b = new FastEnemy(this.x+this.dx*10,this.y+this.dy*10);
+      // var r = Math.sqrt(dx*dx+dy*dy);
+      // b.accel=0.03;
+      b.speed*=4;
+      b.accel=0.5;
+      b.update();
+      // b.speed/=4;
+      // b.accel=0.03;
+      // b.vx = dx/r*10;
+      // b.vy = dy/r*10;
+      entities.push(b);
     }
     super.update();
     if(this.state==1||this.state==2) {
@@ -788,11 +915,11 @@ class Coin extends Thing {
       this.pickup();
       this.shouldDelete = true;
     }
-    if(this.frame>300) {
-      this.x+=(player.x-this.x)/10;
-      this.y+=(player.y-this.y)/10;
-      // this.visible = this.frame%12>=6;
-    }
+    // if(this.frame>300) {
+    //   this.x+=(player.x-this.x)/10;
+    //   this.y+=(player.y-this.y)/10;
+    //   // this.visible = this.frame%12>=6;
+    // }
     // if(this.frame>500) {
       // this.shouldDelete = true;
     // }
@@ -806,7 +933,7 @@ class Coin extends Thing {
   }
   pickup() {
     player.coins += 1;
-    SOUNDS.coin.play();
+    SOUNDS.coin2.play();
   }
 }
 
@@ -880,62 +1007,132 @@ function spawnEnemy() {
   }
 }
 
+function drawKeyboardControls() {
+  var none = '#00000000';
+  drawHouse(40,360,30,36,'white',none);
+  drawWithRotation(40+15,400+18,30,36,Math.PI,'white',none)
+  drawWithRotation(5+15,400+18,30,36,-Math.PI/2,'white',none)
+  drawWithRotation(75+15,400+18,30,36,Math.PI/2,'white',none)
+
+  // drawHouse(225-2,300,4,60,'white','white');
+  var x = 200;
+  var y = 360;
+  drawHouse(x-12,y-5,50,65,'#eee',none);
+  drawWithRotation(x,y+15,25,30,Math.PI/20,'#fff',none);
+  drawWithRotation(x,y+15,25-2,30-2,Math.PI/20,'#fff',none);
+  drawWithRotation(x+26,y+15,25,30,-Math.PI/20,'#eee',none);
+  drawWithRotation(x+13,y+15+4,8,16,0,'#ddd',none);
+}
+
+function drawGamepadControls() {
+  var none = '#00000000';
+  drawWithRotation(80,80,40,48,0,'#fff',none);
+  drawWithRotation(80,80,40-5,48-6,0,'#666',none);
+  drawWithRotation(80,80,20,24,0,'#fff',none);
+
+  drawWithRotation(80+80,80,40,48,0,'white',none);
+  drawWithRotation(160,80,40-5,48-6,0,'#666',none);
+  drawWithRotation(162,82,10,12,Math.PI/4,'#fff','#000');
+  drawWithRotation(152,92,10,12,Math.PI/4,'#fff','#000');
+  drawWithRotation(172,72,10,12,Math.PI/4,'#fff','#000');
+
+
+
+  drawWithRotation(40,20,20,24,0,'#666','#666');
+  drawWithRotation(40,60,20,24,Math.PI,'#666','#666');
+  drawWithRotation(20,40,20,24,-Math.PI/2,'#666','#666');
+  drawWithRotation(60,40,20,24,Math.PI/2,'#666','#666');
+
+
+  drawWithRotation(160+40,20,20,24,0,'#666','#666');
+  drawWithRotation(160+40,60,20,24,0,'#666','#666');
+  drawWithRotation(160+40+1,60+2,10,12,Math.PI/2,'#fff','#fff');
+  drawWithRotation(160+20,40,20,24,0,'#666','#666');
+  drawWithRotation(160+60,40,20,24,0,'#666','#666');
+}
+
 var spawnCount;
+var paused = false;
+
+function pause() {
+  paused = true;
+  canvas.fillStyle = 'black';
+  canvas.globalAlpha=0.5;
+  canvas.fillRect(0,0,CE.width,CE.height);
+  canvas.fillStyle = 'white';
+  canvas.globalAlpha=1;
+  // canvas.fillText('PAUSED', CE.width/2,CE.height/2);
+  canvas.fillText('HOUSE', CE.width/2,CE.height/2);
+  drawKeyboardControls();
+  drawGamepadControls();
+}
+
+window.addEventListener('focus', function() {
+  paused = false;
+})
+window.addEventListener('blur', function() {
+  pause();
+})
 
 function update() {
   handleGamePad();
-  spawnTimer += 1;
-  if(spawnTimer>=spawnTime&&started) {
-    spawnEnemy();
-    spawnTimer = 0;
-  }
-  for(var i=0;i<entities.length;++i) {
-    var e = entities[i];
-    e.update();
-    if(e.shouldDelete) {
-      entities.splice(i,1);
-      --i;
+  if(!paused) {
+    spawnTimer += 1;
+    if(spawnTimer>=spawnTime&&started) {
+      spawnEnemy();
+      spawnTimer = 0;
     }
-  }
-  for(var i=0;i<playerBullets.length;++i) {
-    var b = playerBullets[i];
-    if(b.shouldDelete) {
-      playerBullets.splice(i,1);
-      --i;
-      continue;
-    }
-    for(var j=0;j<enemies.length;++j) {
-      var e = enemies[j];
+    for(var i=0;i<entities.length;++i) {
+      var e = entities[i];
+      e.update();
       if(e.shouldDelete) {
-        enemies.splice(j,1);
-        --j;
+        entities.splice(i,1);
+        --i;
+      }
+    }
+    for(var i=0;i<playerBullets.length;++i) {
+      var b = playerBullets[i];
+      if(b.shouldDelete) {
+        playerBullets.splice(i,1);
+        --i;
         continue;
       }
-      if(collides(b,e)) {
-        e.hit();
-        b.hit();
-        break;
+      for(var j=0;j<enemies.length;++j) {
+        var e = enemies[j];
+        if(e.shouldDelete) {
+          enemies.splice(j,1);
+          --j;
+          continue;
+        }
+        if(collides(b,e)) {
+          e.hit();
+          b.hit();
+          break;
+        }
       }
     }
-  }
-  if(started==1) {
-    if(player.life<=0) {
-      started = 2;
-      frameCount = 0;
+    if(started==1) {
+      if(player.life<=0) {
+        started = 2;
+        frameCount = 0;
+      }
     }
-  }
-  if(started==2&&frameCount>100) {
-    canvas.globalAlpha = 1;
-    start();
-  }
-  if(spawnCount==-1&&enemies.length==0) {
-    win=true;
+    if(started==2&&frameCount>100) {
+      canvas.globalAlpha = 1;
+      start();
+    }
+    if(spawnCount==-1&&enemies.length==0) {
+      win=true;
+    }
+    frameCount+=1;
   }
   mouse.down=false;
-  frameCount+=1;
-
 }
 function draw() {
+  if(paused) {
+    window.requestAnimationFrame(draw);
+    return;
+  }
   canvas.clearRect(0,0,CE.width,CE.height);
   // canvas.fillStyle="rgba(0,0,0,0.05)";
   // canvas.fillRect(0,0,CE.width,CE.height);
@@ -1083,6 +1280,10 @@ function onmouseup(e) {
 function onkeydown(e) {
   var k = e.keyCode;
   keys[k]=true;
+  if(k==27||k==80) {
+    if(paused)paused=false;
+    else pause();
+  }
 }
 
 function onkeyup(e) {

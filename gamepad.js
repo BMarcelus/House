@@ -40,7 +40,9 @@ function handleGamePad() {
     }
     if(gp.buttons) {
       gp.buttons.forEach(b => {
-        if(pressed(b))gamepadOn = true;
+        if(pressed(b)) {
+          gamepadOn = true;
+        }
       });
     }
   }

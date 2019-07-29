@@ -118,8 +118,11 @@ class SoundSource {
     var time = audioContext.currentTime;
     var source = audioContext.createBufferSource();
     source.buffer = this.buffer;
-    // source.detune.setValueAtTime(-Math.log(this.playbackRate)*100, time);
-    // source.playbackRate = 0.5;
+
+    //3 -> -100     
+    //0.5 -> 100    
+    // source.detune.setValueAtTime(-100, time);
+    source.playbackRate.value = this.playbackRate;
     // if(pitchShift != null) {
     //   source.playbackRate.setValueAtTime(pitchShift, time)
     //   // source.detune = pitchShift;
@@ -225,19 +228,20 @@ if(!OnFile) SoundTag = SoundSource;
 
 var SOUNDS={};
 SOUNDS.start = new SoundTag('houseyeah.wav', 1, 1);
-SOUNDS.shoot = dup('House.wav', 3, 1,3);
+SOUNDS.shoot = dup('House_s3.wav', 1, 1,3);
 SOUNDS.footstep = new SoundList([
-  new SoundTag('houseReverb.wav', 3, .3),
-  new SoundTag('houseReverb.wav', 3.2, .3),
-  new SoundTag('houseReverb.wav', 3, .3),
-  new SoundTag('houseReverb.wav', 2.8, .3),
+  new SoundTag('houseReverb_s3.wav', 1, .3),
+  new SoundTag('houseReverb_s3.2.wav', 1, .3),
+  new SoundTag('houseReverb_s3.wav', 1, .3),
+  new SoundTag('houseReverb_s2.8.wav', 1, .3),
 ])
-SOUNDS.hit = dup('housesingy.wav', 4, 2,3);
-SOUNDS.die = new SoundTag('houseReverb.wav', 0.4, 2);
+SOUNDS.hit = dup('enemyDie.wav', 1, 1.5,3);
+SOUNDS.die = new SoundTag('houseReverb_s0.4.wav', 0.4, 2);
 SOUNDS.playerHit = new SoundTag('House.wav', 1, 3);
-SOUNDS.coin = dup('houseq.wav', 3, 2,3);
-SOUNDS.health = dup('houseq.wav', 2, 2,3);
-SOUNDS.enemyDie = new SoundTag('houseyeah.wav', 1.5,1.5);
+SOUNDS.coin = dup('coin1.wav', 1, 2,10);
+SOUNDS.coin2 = dup('coin2.wav', 1, 2,10);
+SOUNDS.health = dup('houseq_s2.wav', 1, 2,3);
+SOUNDS.enemyDie = dup('enemyDie2.wav', 1,2,10);
 SOUNDS.bossSpawn = new SoundTag('HOUSUU.wav', 1,1);
 // var music = new SoundTag('Adventure.mp3');
 // var dieSound = new SoundTag('die.wav', 1, 0.2);

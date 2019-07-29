@@ -1,7 +1,7 @@
 
 
 function checkHost() {
-  var knownHosts = ['bmarcelus.github.io', 'niborious.itch.io'];
+  var knownHosts = ['bmarcelus.github.io', 'niborious.itch.io','uploads.ungrounded.net'];
   var devHosts = ['localhost', '127.0.0.1'];
   try {
     var params = new URLSearchParams(window.location.search);
@@ -26,14 +26,14 @@ function checkHost() {
 
 function NotifyStealer() {
   var gameName = "House";
-  var win = window.open("https://bmarcelus.github.io/potentialBreachOfCopyright.html/?gameName="+gameName+"&illegalHost="+window.location.hostname+'$illegalPath='+window.location, '_blank');
+  var win = window.open("https://bmarcelus.github.io/potentialBreachOfCopyright.html?gameName="+gameName+"&illegalHost="+window.location.hostname+'$illegalPath='+window.location, '_blank');
   win.focus();
   window.location = "https://bmarcelus.github.io/" + gameName + '/?from=' + window.location;
 }
 
 function NotifyIllegalDev() {
   var gameName = "House";
-  var win = window.open("https://bmarcelus.github.io/howToDoLegalBusiness.html/?gameName="+gameName+"&illegalHost="+window.location.hostname+'$illegalPath='+window.location, '_blank');
+  var win = window.open("https://bmarcelus.github.io/howToDoLegalBusiness.html?gameName="+gameName+"&illegalHost="+window.location.hostname+'$illegalPath='+window.location, '_blank');
   win.focus();
 }
 
